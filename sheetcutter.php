@@ -6,7 +6,6 @@ $path=$argv[1];
 if(!file_exists($path))
 	die("$path could not be found\n");
 $removewhite=false; //set to true if whitespace should be removed or false to use the size of the reference page as it is
-$dir=scandir($path);
 $format='png';
 $format_in='png';
 $rotate=90;
@@ -18,26 +17,29 @@ if($debug==true)
 	mkdir($path.'/debug');
 	mkdir($path.'/debug/sheets');
 }
+$outdir=$path.'/cutted'.$format;
+if(!file_exists($outdir))
+	mkdir($outdir);
 
+if (strpos($path,'outside')!==false)
+	$mode='outside';
+else
+	$mode='inside';
+$referencefile=$path."/reference $mode.$format_in";
 
-unset($dir[array_search('..',$dir)],$dir[array_search('.',$dir)],$dir[array_search('Thumbs.db',$dir)]);
+$dir=array_diff(scandir($path),array('.','..','Thumbs.db',basename($referencefile),basename($outdir),'debug')); //Scan the input folder and remove files that are not sheets
 
 sort($dir);
 print_r($dir);
 $sheets=count($dir);
 
-include 'sider.php';
-if (strpos($path,'outside')!==false)
-{
-	$scans=$scans2;
-	$mode='outside';
-}
-else
-	$mode='inside';
-$dir=array_diff($dir,array("reference $mode.$format_in"));
+require 'sheets.php';
+$pagelist=new sheets($sheets);
 
 
 
+$scans=$pagelist->$mode;
+print_r($scans);
 if(strpos($dir[0],'-')!==false) //Check if the filenames contains the page numbers
 	$pagefiles=true;
 else
@@ -48,7 +50,7 @@ require 'image.php';
 $image_in=new png;
 
 
-if(($exist=file_exists($referencefile=$path."/reference $mode.$format_in")) && !$removewhite) //If there is a reference file, use it
+if(($exist=file_exists($referencefile)) && !$removewhite) //If there is a reference file, use it
 {
 	echo "Using file $referencefile as size reference\n";
 	if(!$rotate)
@@ -78,9 +80,7 @@ foreach ($dir as $i=>$infile)
 {
 	if(is_dir($infile) || strpos($infile,'.psd'))
 		continue;
-	$outdir=$path.'/cutted'.$format;
-	if(!file_exists($outdir))
-		mkdir($outdir);
+
 	if(preg_match('^([0-9]+)\-([0-9]+)^',$infile,$pagenumbers))
 		list(,$leftpage,$rightpage) = $pagenumbers;
 	else
@@ -134,7 +134,7 @@ foreach ($dir as $i=>$infile)
 		}
 		if (!file_exists($rightfile))
 		{
-			$rightpart = imagecreatetruecolor($halfwidth, $height);
+			$rightpart = imagecreatetruecolor($halfwidth+20, $height);
 			imagefill($rightpart,0,0,imagecolorallocate($rightpart,255,255,255));
 			imagecopy($rightpart,$im,0,0,$halfwidth,0,$width,$height); //Get the right page
 			echo "Writing page $rightpage<br>\n";
